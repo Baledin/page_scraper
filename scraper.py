@@ -1,5 +1,6 @@
 import argparse
 from bs4 import BeautifulSoup
+import csv
 #import logging
 import os
 #import random
@@ -24,6 +25,9 @@ def main():
     argParser = argparse.ArgumentParser(description="A basic webpage scraper which returns a string from input url(s) with content filtered by provided regular expression.")
     argParser.add_argument("urls", nargs="+", help="Input URL(s) to scrape. Accepts a string or filename (Comma Separated Values) with a .")
     argParser.add_argument("regex", help="Regular Expression to limit response from document.")
+    argParser.add_argument("-c", "--column", type=int, default=0, help="If providing a CSV file, set the Column which contains the URL data (starting from 0), defaults to the first column.")
+    argParser.add_argument("-i", "--ignore-header", default=False, action="store_true", help="Indicates that provided CSV file's first line is a header and can be ignored.")
+    argParser.add_argument("--encoding", default="utf8", help="Override the default UTF8 file encoding when providing a filename as input.")
     argParser.add_argument("-u", "--user-agent", default="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36 link_checker/0.9", help="Alternative User-Agent to use with requests.get() headers")
     argParser.add_argument("-t", "--threads", type=int, default=2, help="Sets the number of concurrent threads that can be processed at one time. Be aware that increasing thread count will increase the frequency of requests to the server. Use 0 to disable multi-threading.")
     args = argParser.parse_args()
@@ -32,12 +36,15 @@ def main():
     if not is_valid_regex(args.regex):
         quit("Invalid Regular Expression provided.")
 
-    # Check if filename or URL(s) being passed
-    if os.path.exists(args.url):
-        # file handler
-        return
-
+    # Check if filename or URL(s) being passed, supports multiple files
+    urls = []
     for url in args.urls:
+        if os.path.exists(url):
+            urls = urls + get_urls_from_file(url, args.encoding, args.column, args.ignore_header)
+        else:
+            urls.append(url)
+
+    for url in urls:
         if not is_valid_url(url):
             quit(url + " is invalid")
 
@@ -65,6 +72,23 @@ def get_page(url: str) -> requests.Response:
     except requests.RequestException:
         print("Invalid page request")
     return page
+
+def get_urls_from_file(filename: str, encoding: str, col: int, header: bool) -> list[str]:
+    try:
+        urls = []
+        with open(filename, mode='r', encoding=encoding) as csv_file:
+            first_line = True
+            reader = csv.reader(csv_file, delimiter=',')
+            for row in reader:
+                if first_line and header:
+                    first_line = False
+                else:
+                    urls.append(row[col])
+        return urls
+    except UnicodeDecodeError:
+        quit("Wrong encoding provided for file. Selected encoding option is " + encoding + ".")
+    except:
+        quit("Error reading input file.")
 
 # Validate regex input
 def is_valid_regex(regex: str) -> bool:
