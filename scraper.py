@@ -60,14 +60,19 @@ def main():
                 soup = BeautifulSoup(page.text, 'html.parser')
                 x = soup.find_all(args.regex)
         else:
-            logging.warning(url + " is invalid")
+            logging.warning(url + " is invalid.")
 
 # Read and validate regex string (re.compile?)
 # https://stackoverflow.com/questions/51691270/python-user-input-as-regular-expression-how-to-do-it-correctly
 
+# Returns connection to local database
+def get_connection():
+    logging.info("Getting database connection: %s" % db_name)
+    return sqlite3.connect(db_name)
 
 # Returns page response object for URL
 def get_page(url: str) -> requests.Response:
+    logging.info("Retrieving page: " + url)
     headers = {"User-Agent": args.user_agent}
     follow_redirects = True
     verify_ssl = False
@@ -75,10 +80,11 @@ def get_page(url: str) -> requests.Response:
     try:
         page = requests.get(url, headers=headers, allow_redirects=follow_redirects, verify=verify_ssl)
     except requests.RequestException:
-        print("Invalid page request")
+        logging.warning("Invalid page request: " + url)
     return page
 
 def get_urls_from_file(filename: str, encoding: str, col: int, header: bool) -> list[str]:
+    logging.info("Building list of URLs")
     try:
         urls = []
         with open(filename, mode='r', encoding=encoding) as csv_file:
@@ -91,7 +97,7 @@ def get_urls_from_file(filename: str, encoding: str, col: int, header: bool) -> 
                     urls.append(row[col])
         return urls
     except UnicodeDecodeError:
-        quit("Wrong encoding provided for file. Selected encoding option is " + encoding + ".")
+        logging.error("Wrong encoding provided for " + filename)
     except:
         quit("Error reading input file.")
 
@@ -101,13 +107,20 @@ def is_valid_regex(regex: str) -> bool:
     try:
         re.compile(regex)
         is_valid = True
-    except re.error:
-        print("Invalid regex.")
+    except:
+        error_msg = "Invalid regular expression: " + regex
+        logging.error(error_msg)
+        quit(error_msg)s
     return is_valid
 
 # Validate URL input
 def is_valid_url(url: str) -> bool:
     return validators.url(url)
+
+# Sets local database
+def set_db(filename):
+    global db_name
+    db_name = filename
 
 # Use BeautifulSoup to filter page contents and return result
 
