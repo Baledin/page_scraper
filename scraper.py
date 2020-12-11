@@ -1,7 +1,7 @@
 import argparse
 from bs4 import BeautifulSoup
 import csv
-#import logging
+import logging
 import os
 #import random
 import re
@@ -22,15 +22,23 @@ def main():
 
     # TODO: Clean up help text
     # Input from user
-    argParser = argparse.ArgumentParser(description="A basic webpage scraper which returns a string from input url(s) with content filtered by provided regular expression.")
+    argParser = argparse.ArgumentParser(description="A basic webpage scraper which returns regular expression matching content from input url(s).")
     argParser.add_argument("urls", nargs="+", help="Input URL(s) to scrape. Accepts a string or filename (Comma Separated Values) with a .")
     argParser.add_argument("regex", help="Regular Expression to limit response from document.")
     argParser.add_argument("-c", "--column", type=int, default=0, help="If providing a CSV file, set the Column which contains the URL data (starting from 0), defaults to the first column.")
     argParser.add_argument("-i", "--ignore-header", default=False, action="store_true", help="Indicates that provided CSV file's first line is a header and can be ignored.")
     argParser.add_argument("--encoding", default="utf8", help="Override the default UTF8 file encoding when providing a filename as input.")
     argParser.add_argument("-u", "--user-agent", default="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36 link_checker/0.9", help="Alternative User-Agent to use with requests.get() headers")
+    argParser.add_argument("-l", "--log-level", default="INFO", choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"], help="Log level to report in %s." % info_log)
     argParser.add_argument("-t", "--threads", type=int, default=2, help="Sets the number of concurrent threads that can be processed at one time. Be aware that increasing thread count will increase the frequency of requests to the server. Use 0 to disable multi-threading.")
     args = argParser.parse_args()
+
+    # Set up logging
+    logging.basicConfig(
+        level=args.log_level,
+        filename=info_log,
+        filemode="w+",
+        format="%(asctime)s\t%(levelname)s\t%(message)s")
 
     # Valdate input
     if not is_valid_regex(args.regex):
@@ -38,24 +46,21 @@ def main():
 
     # Check if filename or URL(s) being passed, supports multiple files
     urls = []
-    for url in args.urls:
-        if os.path.exists(url):
-            urls = urls + get_urls_from_file(url, args.encoding, args.column, args.ignore_header)
+    for user_input in args.urls:
+        if os.path.exists(user_input):
+            urls = urls + get_urls_from_file(user_input, args.encoding, args.column, args.ignore_header)
         else:
-            urls.append(url)
+            urls.append(user_input)
 
     for url in urls:
-        if not is_valid_url(url):
-            quit(url + " is invalid")
-
-    for url in args.urls:
-        page = get_page(url)
-        if page.status_code == 200:
-            soup = BeautifulSoup(page.text, 'html.parser')
-            soup.find_all(args.regex)
-        
-
-# Check if urls are a list of urls, html string, or file
+        # Check for valid URL
+        if is_valid_url(url):
+            page = get_page(url)
+            if page.status_code == 200:
+                soup = BeautifulSoup(page.text, 'html.parser')
+                x = soup.find_all(args.regex)
+        else:
+            logging.warning(url + " is invalid")
 
 # Read and validate regex string (re.compile?)
 # https://stackoverflow.com/questions/51691270/python-user-input-as-regular-expression-how-to-do-it-correctly
