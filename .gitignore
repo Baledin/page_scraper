@@ -8,3 +8,4 @@ pyvenv.cfg
 *.log
 *.html
 .pylintrc
+*.csv
