@@ -4,6 +4,7 @@ import logging
 import os
 import regex
 import requests
+from typing import List
 import validators
 
 args = None
@@ -23,7 +24,8 @@ def main():
     argParser.add_argument("--encoding", default="utf8", help="Override the default UTF8 file encoding when providing a filename as input.")
     argParser.add_argument("-u", "--user-agent", default="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36 link_checker/0.9", help="Alternative User-Agent to use with requests.get() headers")
     argParser.add_argument("-l", "--log-level", default="INFO", choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"], help="Log level to report in %s." % info_log)
-    argParser.add_argument("-t", "--threads", type=int, default=2, help="Sets the number of concurrent threads that can be processed at one time. Be aware that increasing thread count will increase the frequency of requests to the server. Use 0 to disable multi-threading.")
+    # TODO: Implement threading?
+    #argParser.add_argument("-t", "--threads", type=int, default=2, help="Sets the number of concurrent threads that can be processed at one time. Be aware that increasing thread count will increase the frequency of requests to the server. Use 0 to disable multi-threading.")
     args = argParser.parse_args()
 
     # Configure logging
@@ -84,7 +86,7 @@ def get_page(url: str) -> requests.Response:
         logging.warning("Invalid page request: " + url)
     return page
 
-def get_urls_from_file(filename: str, encoding: str, col: int, header: bool) -> list[str]:
+def get_urls_from_file(filename: str, encoding: str, col: int, header: bool) -> List[str]:
     logging.info("Building list of URLs")
     try:
         urls = []
