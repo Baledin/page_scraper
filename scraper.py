@@ -4,6 +4,7 @@ import logging
 import os
 import regex
 import requests
+from typing import Dict
 from typing import List
 import validators
 
@@ -110,7 +111,7 @@ def is_valid_url(url: str) -> bool:
     return validators.url(url)
 
 # Converts dictionary to output CSV
-def output_results(results: dict[str, str]) -> None:
+def output_results(results: Dict[str, str]):
     with open(report_file, "w", newline='') as out:
         writer = csv.writer(out)
         for key, items in results.items():
@@ -137,7 +138,7 @@ def process_page_regex(page: requests.Response, expr: str) -> str:
     return result
 
 # Process URLs, retrieving page data and comparing to Regex string
-def process_pages(pages: List[requests.Response], expr: str) -> dict[str, str]:
+def process_pages(pages: List[requests.Response], expr: str) -> Dict[str, str]:
     for page in pages:
         pages[page] = process_page_regex(page, expr)
     
