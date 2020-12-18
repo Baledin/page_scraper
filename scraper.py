@@ -24,8 +24,8 @@ def main():
     argParser.add_argument("--encoding", default="utf8", help="Override the default UTF8 file encoding when providing a filename as input.")
     argParser.add_argument("-u", "--user-agent", default="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36 link_checker/0.9", help="Alternative User-Agent to use with requests.get() headers")
     argParser.add_argument("-l", "--log-level", default="INFO", choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"], help="Log level to report in %s." % info_log)
-    # TODO: Implement threading?
-    #argParser.add_argument("-t", "--threads", type=int, default=2, help="Sets the number of concurrent threads that can be processed at one time. Be aware that increasing thread count will increase the frequency of requests to the server. Use 0 to disable multi-threading.")
+    # Testing flag, will limit results to first 10 instead of processing everything
+    argParser.add_argument("-test", default=False, action="store_true", help=argparse.SUPPRESS)
     args = argParser.parse_args()
 
     # Configure logging
@@ -47,28 +47,17 @@ def main():
         else:
             urls.append(user_input)
 
+    # Sets testing limiter if flag is set
+    max_entries = len(urls) if not args.test else min(len(urls), 10)
+
     # Convert URLs to dictionary keys, removes duplicates
-    results = dict.fromkeys(urls, 1)
-    for result in results:
-        # Check for valid URL
-        if is_valid_url(result):
-            page = get_page(result)
-            if page.status_code == 200:
-                match = regex.search(args.regex, page.text)
-                if not match == None:
-                    results[result] = match[0]
-        else:
-            logging.warning(result + " is invalid.")
-            results[result] = ""
+    dict_urls = dict.fromkeys(urls[:max_entries], 1)
+
+    # Process urls
+    results = process_pages(dict_urls, args.regex)
     
-    with open(report_file, "w", newline='') as out:
-        writer = csv.writer(out)
-        for key, items in results.items():
-            if isinstance(items, list):
-                for item in items:
-                    writer.writerow([key, item])
-            else:
-                writer.writerow([key, items])
+    # Output results
+    output_results(results)
 
 # Returns page response object for URL
 def get_page(url: str) -> requests.Response:
@@ -86,8 +75,9 @@ def get_page(url: str) -> requests.Response:
         logging.warning("Invalid page request: " + url)
     return page
 
+# Returns list of URLs from filename
 def get_urls_from_file(filename: str, encoding: str, col: int, header: bool) -> List[str]:
-    logging.info("Building list of URLs")
+    logging.info("Building list of URLs from " + filename)
     try:
         urls = []
         with open(filename, mode='r', encoding=encoding) as csv_file:
@@ -105,7 +95,6 @@ def get_urls_from_file(filename: str, encoding: str, col: int, header: bool) -> 
         quit("Error reading input file.")
 
 # Validate regex input
-# https://stackoverflow.com/questions/51691270/python-user-input-as-regular-expression-how-to-do-it-correctly
 def is_valid_regex(expression: str) -> bool:
     is_valid = False
     try:
@@ -120,8 +109,39 @@ def is_valid_regex(expression: str) -> bool:
 def is_valid_url(url: str) -> bool:
     return validators.url(url)
 
-# Use BeautifulSoup to filter page contents and return result
+# Converts dictionary to output CSV
+def output_results(results: dict[str, str]) -> None:
+    with open(report_file, "w", newline='') as out:
+        writer = csv.writer(out)
+        for key, items in results.items():
+            if isinstance(items, list):
+                for item in items:
+                    writer.writerow([key, item])
+            else:
+                writer.writerow([key, items])
 
+# Process page, retrieving page data and comparing to Regex string
+def process_page_regex(page: requests.Response, expr: str) -> str:
+    result = ""
+    
+    # Check for valid URL
+    if is_valid_url(page):
+        page = get_page(page)
+        if page.status_code == 200:
+            match = regex.search(expr, page.text)
+            if not match == None:
+                result = match[0]
+    else:
+        logging.warning(result + " is invalid.")
+    
+    return result
+
+# Process URLs, retrieving page data and comparing to Regex string
+def process_pages(pages: List[requests.Response], expr: str) -> dict[str, str]:
+    for page in pages:
+        pages[page] = process_page_regex(page, expr)
+    
+    return pages
 
 if __name__ == "__main__":
     main()
